@@ -16,6 +16,7 @@
                 <th>Nombre</th>
                 <th>Departamento</th>
                 <th>Puesto</th>
+                <th>RFC</th>
                 <th>Acción</th>
             </tr>
         </thead>
@@ -30,6 +31,7 @@
                     </td>
                     <td>{{ $empleado->departamento }}</td>
                     <td>{{ $empleado->puesto }}</td>
+                    <td>{{ $empleado->rfc }}</td>
                     <td>
                         <a href="{{ url('/empleado.php?id=' . $empleado->id) }}">
                             Consultar ficha

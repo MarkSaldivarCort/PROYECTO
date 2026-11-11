@@ -21,7 +21,8 @@ class RegistroUsuarios extends Controller
             'correo_electronico' => 'required|email|unique:usuarios,email|max:50',
             'telefono' => 'required|numeric|digits_between:10,12',
             'nombre_de_usuario' => 'required|max:15|unique:usuarios,nombre_de_usuario',
-            'password' => 'required|min:8|confirmed'
+            'password' => 'required|min:8|confirmed',
+            'tipo_usuario' => 'Analista de RRHH'
         ],
         [
             'telefono.digit_between' => 'Debes introducir un número de teléfono válido.',

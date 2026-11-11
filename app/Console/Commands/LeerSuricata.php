@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Console\Commands;
 
 use App\Models\AlertaSuricata;
@@ -55,6 +56,7 @@ class LeerSuricata extends Command
             }
 
             $alerta = $evento['alert'] ?? [];
+            $http = $evento['http'] ?? [];
 
             if (!isset($evento['timestamp'])) {
                 continue;
@@ -80,10 +82,19 @@ class LeerSuricata extends Command
                 'fecha_evento' => Carbon::parse(
                     $evento['timestamp']
                 ),
+
+                // Nuevos campos
+                'event_type' => $evento['event_type'] ?? null,
+
+                'http_method' => $http['http_method'] ?? null,
+
+                'http_url' => $http['url'] ?? null,
+
+                'http_status' => $http['status'] ?? null,
             ];
 
             try {
-                // Evita volver a insertar el mismo evento
+                // Evitar insertar eventos duplicados
                 $existe = AlertaSuricata::where(
                     'flow_id',
                     $datos['flow_id']

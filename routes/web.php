@@ -10,8 +10,8 @@ use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Usuarios;
 use Illuminate\Support\Facades\URL;
-use App\Http\Controllers\SuricataController;
 use phpseclib4\Net\SSH2;
+use App\Http\Controllers\SuricataController;
 use App\Http\Controllers\AlertaSuricataController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\ExportacionController;
@@ -33,7 +33,7 @@ Route::post('/registro', [RegistroUsuarios::class, 'cargarBD']);
 Route::get('/login',[Login::class, 'mostrar'])->name('login');
 Route::post('/login',[Login::class, 'ingresar']);
 
-Route::get('/eliminar/{id}', [RegistroUsuarios::class, 'eliminarUsuario']);
+// Route::get('/eliminar/{id}', [RegistroUsuarios::class, 'eliminarUsuario']);
 
 Route::get('/prueba-correo', function () {
 
@@ -65,37 +65,41 @@ Route::get('/email/verificar/{id}/{hash}', function ($id, $hash) {
         abort(403);
     }
 
-    if (! $usuario->hasVerifiedEmail()) {
-        $usuario->markEmailAsVerified();
+    // Ya estaba verificado
+    if ($usuario->hasVerifiedEmail()) {
+        return view('correo_ya_verificado');
     }
+
+    // Primera verificación
+    $usuario->markEmailAsVerified();
 
     return view('verificado');
 
 })->middleware(['signed'])->name('verification.verify');
 
-Route::get('/email/verificar/{id}/{token}', function ($id, $token) {
+// Route::get('/email/verificar/{id}/{token}', function ($id, $token) {
 
-    $usuario = Usuarios::findOrFail($id);
+//     $usuario = Usuarios::findOrFail($id);
 
-    // Enlace ya utilizado
-    if ($usuario->verification_token === null) {
-        return view('correo_ya_verificado');
-    }
+//    // El usuario ya verificó previamente
+//     if ($usuario->hasVerifiedEmail()) {
+//         return view('correo_ya_verificado');
+//     }
 
-    // Token incorrecto
-    if ($usuario->verification_token !== $token) {
-        abort(403);
-    }
+//     // Token inválido
+//     if ($usuario->verification_token !== $token) {
+//         abort(403);
+//     }
 
-    // Verificar correo
-    $usuario->markEmailAsVerified();
+//     // Verificar correo
+//     $usuario->markEmailAsVerified();
 
-    // Invalidar el enlace
-    $usuario->verification_token = null;
-    $usuario->save();
+//     // Invalidar enlace
+//     $usuario->verification_token = null;
+//     $usuario->save();
 
-    return view('verificado');
-});
+//     return view('verificado');
+// });
 
 Route::get('/email/verificar', function () {
     return view('verifica_correo');
@@ -113,28 +117,69 @@ Route::get('/email/verificar', function () {
 // });
 
 
+Route::get('/suricata/importar', [SuricataController::class, 'importarAlertas'])->name('suricata.importar');
 
-Route::get('/suricata', [SuricataController::class, 'eventos']);
-
-
-
-
-Route::get('/empleados', [AlertaSuricataController::class, 'index'])
-    ->name('empleados.index');
+Route::get('/alertas', [AlertaSuricataController::class, 'index'])->name('alertas');
 
 
-// Módulo de Recursos Humanos
-Route::get('/empleados', [EmpleadoController::class, 'index']);
 
-Route::get('/empleado.php', [EmpleadoController::class, 'show']);
 
-Route::get('/buscar-empleados', [EmpleadoController::class, 'buscar']);
+// Route::get('/empleados', [AlertaSuricataController::class, 'index'])
+//     ->name('empleados.index');
 
-// Exportación
-Route::get('/export.php', [ExportacionController::class, 'exportar']);
 
-// Prueba de respuesta con RFC ficticios
-Route::get('/prueba-rfc', [PruebaSeguridadController::class, 'rfc']);
+// // Módulo de Recursos Humanos
+// Route::get('/empleados', [EmpleadoController::class, 'index']);
 
-// Auditoría
-Route::get('/auditoria', [AuditoriaController::class, 'index']);
+// Route::get('/empleado.php', [EmpleadoController::class, 'show']);
+
+// Route::get('/buscar-empleados', [EmpleadoController::class, 'buscar']);
+
+// // Exportación
+// Route::get('/export.php', [ExportacionController::class, 'exportar']);
+
+// // Prueba de respuesta con RFC ficticios
+// Route::get('/prueba-rfc', [PruebaSeguridadController::class, 'rfc']);
+
+// // Auditoría
+// Route::get('/auditoria', [AuditoriaController::class, 'index']);
+
+
+Route::middleware(['auth', 'verified'])->group(function () {
+
+    Route::get('/dashboard', [EmpleadoController::class, 'index'])
+    ->name('dashboard');
+    
+    Route::get('/alertas/{id}', [AlertaSuricataController::class, 'show'])
+    ->name('alertas.show');
+
+    Route::get(
+        '/empleados/exportar',
+        [EmpleadoController::class, 'exportar']
+    )->name('empleados.exportar');
+
+});
+Route::get(
+    '/empleados/exportar',
+    [EmpleadoController::class,'exportar']
+)->name('empleados.exportar');
+
+
+
+Route::post('/logout', function () {
+
+    Auth::logout();
+
+    request()->session()->invalidate();
+
+    request()->session()->regenerateToken();
+
+    return redirect('/login');
+
+})->name('logout');
+
+
+Route::get(
+    '/empleados/{id}',
+    [EmpleadoController::class, 'show']
+)->name('empleados.show');

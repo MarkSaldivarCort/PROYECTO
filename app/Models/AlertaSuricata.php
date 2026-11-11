@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +15,10 @@ class AlertaSuricata extends Model
         'severity',
         'sid',
         'fecha_evento',
+        'event_type',
+        'http_method',
+        'http_url',
+        'http_status',
     ];
 
     protected function casts(): array
@@ -23,6 +26,7 @@ class AlertaSuricata extends Model
         return [
             'fecha_evento' => 'datetime',
             'severity' => 'integer',
+            'http_status' => 'integer',
         ];
     }
 }
