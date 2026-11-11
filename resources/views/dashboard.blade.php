@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="row mb-4">
 
+<div class="row mb-4">
     <div class="col-md-3">
         <div class="card text-center">
             <div class="card-body">
@@ -11,43 +11,37 @@
             </div>
         </div>
     </div>
-
 </div>
+
 <div class="container mt-4">
 
     <h2>Empleados</h2>
 
     <form method="GET"
-          action="{{ route('dashboard') }}"
-          class="row mb-3">
+        action="{{ route('empleados.buscar') }}"
+        class="row mb-3">
 
         <div class="col-md-8">
-
             <input
                 type="text"
-                name="q"
+                name="busqueda"
                 class="form-control"
                 placeholder="Buscar nombre o departamento"
-                value="{{ request('q') }}"
+                value="{{ request('busqueda') }}"
             >
-
         </div>
 
         <div class="col-md-2">
-
             <button class="btn btn-primary w-100">
                 Buscar
             </button>
-
         </div>
 
         <div class="col-md-2">
-
             <a href="{{ route('empleados.exportar') }}"
                class="btn btn-success w-100">
                 Exportar CSV
             </a>
-
         </div>
 
     </form>
@@ -56,69 +50,67 @@
 
 <div class="table-responsive">
 
-<table class="table table-dark table-hover">
+    <table class="table table-dark table-hover">
 
-<thead>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>RFC</th>
+                <th>CURP</th>
+                <th>Puesto</th>
+                <th>Departamento</th>
+                <th>Estatus</th>
+                <th class="text-center">Acciones</th>
+            </tr>
+        </thead>
 
-<tr>
-    <th>ID</th>
-    <th>Nombre</th>
-    <th>RFC</th>
-    <th>CURP</th>
-    <th>Puesto</th>
-    <th>Departamento</th>
-    <th>Estatus</th>
-</tr>
+        <tbody>
 
-</thead>
+            @foreach($empleados as $empleado)
 
-<tbody>
+            <tr>
 
-@foreach($empleados as $empleado)
+                <td>{{ $empleado->id }}</td>
 
-<tr>
+                <td>
+                    {{ $empleado->nombres }} {{ $empleado->apellidos }}
+                </td>
 
-    <td>{{ $empleado->id }}</td>
+                <td>{{ $empleado->rfc }}</td>
 
-    <td>
-        <a href="{{ route('empleados.show', $empleado->id) }}">
-            {{ $empleado->nombres }} {{ $empleado->apellidos }}
-        </a>
-    </td>
+                <td>{{ $empleado->curp }}</td>
 
-    <td>{{ $empleado->rfc }}</td>
+                <td>{{ $empleado->puesto }}</td>
 
-    <td>{{ $empleado->curp }}</td>
+                <td>{{ $empleado->departamento }}</td>
 
-    <td>{{ $empleado->puesto }}</td>
+                <td>
+                    @if($empleado->estatus == 'activo')
+                        <span class="badge bg-success">
+                            Activo
+                        </span>
+                    @else
+                        <span class="badge bg-warning">
+                            Inactivo
+                        </span>
+                    @endif
+                </td>
 
-    <td>{{ $empleado->departamento }}</td>
+                <td class="text-center">
+                    <a href="{{ route('empleados.show', $empleado->id) }}"
+                       class="btn btn-primary btn-sm">
+                        Ver información
+                    </a>
+                </td>
 
-    <td>
+            </tr>
 
-        @if($empleado->estatus == 'activo')
+            @endforeach
 
-            <span class="badge bg-success">
-                Activo
-            </span>
+        </tbody>
 
-        @else
-
-            <span class="badge bg-warning">
-                Desvinculado
-            </span>
-
-        @endif
-
-    </td>
-
-</tr>
-
-@endforeach
-
-</tbody>
-
-</table>
+    </table>
 
 </div>
 
@@ -126,8 +118,9 @@
 
 <form method="POST" action="{{ route('logout') }}">
     @csrf
-    <button type="submit">Salir</button>
+    <button type="submit" class="btn btn-danger btn-sm">
+        Salir
+    </button>
 </form>
-
 
 @endsection

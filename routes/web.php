@@ -17,6 +17,8 @@ use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\ExportacionController;
 use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\PruebaSeguridadController;
+use App\Http\Controllers\DesvinculacionController;
+use App\Http\Controllers\UsuarioController;
 
 
 Route::get('/', function () {
@@ -119,8 +121,17 @@ Route::get('/email/verificar', function () {
 
 Route::get('/suricata/importar', [SuricataController::class, 'importarAlertas'])->name('suricata.importar');
 
-Route::get('/alertas', [AlertaSuricataController::class, 'index'])->name('alertas');
+Route::get('/alertas', [AlertaSuricataController::class, 'index'])
+    ->middleware('admin')
+    ->name('alertas');
 
+Route::get('/usuarios', [UsuarioController::class, 'index'])
+    ->middleware('admin')
+    ->name('usuarios.index');
+
+Route::put('/usuarios/{usuario}/rol', [UsuarioController::class, 'actualizarRol'])
+    ->middleware('admin')
+    ->name('usuarios.actualizarRol');
 
 
 
@@ -133,7 +144,6 @@ Route::get('/alertas', [AlertaSuricataController::class, 'index'])->name('alerta
 
 // Route::get('/empleado.php', [EmpleadoController::class, 'show']);
 
-// Route::get('/buscar-empleados', [EmpleadoController::class, 'buscar']);
 
 // // Exportación
 // Route::get('/export.php', [ExportacionController::class, 'exportar']);
@@ -149,6 +159,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard', [EmpleadoController::class, 'index'])
     ->name('dashboard');
+
+    Route::get('/desvinculaciones', [DesvinculacionController::class, 'index'])
+    ->name('desvinculaciones.index');
+
+    Route::post('/desvinculaciones', [DesvinculacionController::class, 'store'])
+    ->name('desvinculaciones.store');
+
+    Route::get('/desvinculaciones/buscar-empleados', [DesvinculacionController::class, 'buscarEmpleados'])
+    ->name('desvinculaciones.buscarEmpleados');
+
+    Route::get('/empleados/buscar', [EmpleadoController::class, 'buscar'])
+    ->name('empleados.buscar');
     
     Route::get('/alertas/{id}', [AlertaSuricataController::class, 'show'])
     ->name('alertas.show');

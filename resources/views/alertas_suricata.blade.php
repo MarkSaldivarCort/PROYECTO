@@ -10,7 +10,6 @@
 
     <div class="row mb-4">
         <div class="col-md-4">
-
             <div class="card border-success shadow-sm">
 
                 <div class="card-body text-center">

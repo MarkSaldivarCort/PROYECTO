@@ -34,4 +34,12 @@ class Empleado extends Model
             'fecha_baja' => 'date',
         ];
     }
+    public function getAntiguedadAttribute()
+    {
+        if (!$this->fecha_ingreso) {
+            return null;
+        }
+
+        return (int) $this->fecha_ingreso->diffInYears(now());
+    }
 }

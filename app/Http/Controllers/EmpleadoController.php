@@ -8,7 +8,7 @@ class EmpleadoController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Empleado::query();
+        $query = Empleado::where('estatus', 'activo');
 
         if ($request->filled('q')) {
 
@@ -84,6 +84,24 @@ class EmpleadoController extends Controller
             $headers
         );
     }
+
+    public function buscar(Request $request)
+    {
+        $busqueda = $request->input('busqueda');
+
+        $empleados = Empleado::where('estatus', 'activo')
+            ->where(function ($query) use ($busqueda) {
+                $query->where('nombres', 'like', "%{$busqueda}%")
+                    ->orWhere('apellidos', 'like', "%{$busqueda}%")
+                    ->orWhere('departamento', 'like', "%{$busqueda}%");
+            })
+            ->orderBy('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('dashboard', compact('empleados'));
+    }
+
     public function show($id)
     {
         $empleado = Empleado::findOrFail($id);

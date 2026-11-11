@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Http\Controllers;
-
 use App\Models\AlertaSuricata;
 
 class AlertaSuricataController extends Controller
@@ -11,14 +9,14 @@ class AlertaSuricataController extends Controller
         $alertas = AlertaSuricata::orderBy(
             'fecha_evento',
             'desc'
-        )->paginate(10);
+        )->paginate(20);
 
         $exportaciones = AlertaSuricata::where(
             'sid',
             1000001
         )->count();
 
-        $totalAlertas = $alertas->count();
+        $totalAlertas = AlertaSuricata::count();
 
         $criticas = $alertas
             ->where('severity', 1)
