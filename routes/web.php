@@ -171,6 +171,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/empleados/buscar', [EmpleadoController::class, 'buscar'])
     ->name('empleados.buscar');
+
+    Route::get('/empleados/sugerencias', [EmpleadoController::class, 'sugerencias'])
+    ->name('empleados.sugerencias');
     
     Route::get('/alertas/{id}', [AlertaSuricataController::class, 'show'])
     ->middleware('alertas.dlp')

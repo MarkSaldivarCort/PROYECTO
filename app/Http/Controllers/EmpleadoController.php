@@ -120,10 +120,35 @@ class EmpleadoController extends Controller
     }
 
 
-
     public function buscar(Request $request)
     {
-        $busqueda = $request->input('busqueda');
+        $busqueda = trim($request->input('busqueda', ''));
+
+        $empleados = Empleado::where('estatus', 'activo')
+            ->where(function ($query) use ($busqueda) {
+                $query->where('nombres', 'like', "%{$busqueda}%")
+                    ->orWhere('apellidos', 'like', "%{$busqueda}%")
+                    ->orWhere('departamento', 'like', "%{$busqueda}%")
+                    ->orWhereRaw(
+                        "CONCAT(nombres, ' ', apellidos) LIKE ?",
+                        ["%{$busqueda}%"]
+                    );
+            })
+            ->orderBy('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('dashboard', compact('empleados'));
+    }
+
+
+    public function sugerencias(Request $request)
+    {
+        $busqueda = trim($request->input('busqueda', ''));
+
+        if (strlen($busqueda) < 2) {
+        return response()->json([]);
+        }
 
         $empleados = Empleado::where('estatus', 'activo')
             ->where(function ($query) use ($busqueda) {
@@ -131,11 +156,11 @@ class EmpleadoController extends Controller
                     ->orWhere('apellidos', 'like', "%{$busqueda}%")
                     ->orWhere('departamento', 'like', "%{$busqueda}%");
             })
-            ->orderBy('id')
-            ->paginate(10)
-            ->withQueryString();
+            ->orderBy('nombres')
+            ->limit(8)
+            ->get(['id', 'nombres', 'apellidos', 'departamento']);
 
-        return view('dashboard', compact('empleados'));
+        return response()->json($empleados);
     }
 
     public function show($id)

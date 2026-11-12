@@ -1,11 +1,18 @@
-
 @extends('layouts.app')
+
+@section('title', 'Desvinculaciones')
 
 @section('content')
 
-<div class="container mt-4">
+<div class="container-fluid px-0">
 
-    <h2 class="mb-4">Desvinculaciones</h2>
+    <div class="mb-4">
+        <h2 class="fw-bold mb-1">Gestión de desvinculaciones</h2>
+
+        <p class="text-muted mb-0">
+            Registro y seguimiento de bajas del personal.
+        </p>
+    </div>
 
     {{-- Mensaje de confirmación --}}
     @if(session('success'))
@@ -30,73 +37,86 @@
         </div>
     @endif
 
+    
     {{-- Formulario para registrar una baja --}}
-    <div class="card shadow mb-4">
+    <div class="card border-0 shadow-sm mb-4">
 
-        <div class="card-header bg-dark text-white">
-            Registrar desvinculación
+        <div class="card-header text-white py-3"
+            style="background-color: #6F1D46;">
+            <h5 class="mb-0 fw-semibold">
+                <i class="bi bi-person-dash me-2"></i>
+                Registrar desvinculación
+            </h5>
         </div>
 
-        <div class="card-body">
+        <div class="card-body p-4">
 
             <form method="POST" action="{{ route('desvinculaciones.store') }}">
                 @csrf
 
                 <div class="row">
-                  
+
                     <div class="col-md-6 mb-3">
 
-                      <label class="form-label">Buscar empleado</label>
+                        <label class="form-label fw-semibold">
+                            Buscar empleado
+                        </label>
 
-                      <input
-                        type="text"
-                        id="buscarEmpleado"
-                        class="form-control"
-                        placeholder="Escribe el nombre o apellido..."
-                        autocomplete="off"
-                      >
+                        <input
+                            type="text"
+                            id="buscarEmpleado"
+                            class="form-control"
+                            placeholder="Escribe el nombre o apellido..."
+                            autocomplete="off"
+                        >
 
-                      <input
-                        type="hidden"
-                        name="empleado_id"
-                        id="empleado_id"
-                        required
-                      >
+                        <input
+                            type="hidden"
+                            name="empleado_id"
+                            id="empleado_id"
+                            required
+                        >
 
-                      <div id="resultadosEmpleados"
-                        class="list-group mt-1">
-                      </div>
-
-                      <div id="empleadoSeleccionado"
-                        class="mt-2 text-success">
-                      </div>
-                      <div id="antiguedadEmpleado" class="mt-3" style="display: none;">
-                        <div class="alert alert-info">
-                          <strong>Antigüedad laboral:</strong>
-                          <span id="valorAntiguedad"></span>
+                        <div id="resultadosEmpleados"
+                            class="list-group mt-1">
                         </div>
-                      </div>
+
+                        <div id="empleadoSeleccionado"
+                            class="mt-2 text-success">
+                        </div>
+
+                        <div id="antiguedadEmpleado"
+                            class="mt-3"
+                            style="display: none;">
+                            <div class="alert alert-info mb-0">
+                                <strong>Antigüedad laboral:</strong>
+                                <span id="valorAntiguedad"></span>
+                            </div>
+                        </div>
 
                     </div>
 
-
                     <div class="col-md-6 mb-3">
 
-                        <label class="form-label">Fecha de baja</label>
+                        <label class="form-label fw-semibold">
+                            Fecha de baja
+                        </label>
 
                         <input
-                          type="date"
-                          name="fecha_baja"
-                          class="form-control"
-                          value="{{ old('fecha_baja') }}"
-                          required
+                            type="date"
+                            name="fecha_baja"
+                            class="form-control"
+                            value="{{ old('fecha_baja') }}"
+                            required
                         >
 
                     </div>
 
                     <div class="col-md-8 mb-3">
 
-                        <label class="form-label">Motivo de desvinculación</label>
+                        <label class="form-label fw-semibold">
+                            Motivo de desvinculación
+                        </label>
 
                         <input
                             type="text"
@@ -112,7 +132,9 @@
 
                     <div class="col-md-4 mb-3">
 
-                        <label class="form-label">Finiquito (MXN)</label>
+                        <label class="form-label fw-semibold">
+                            Finiquito (MXN)
+                        </label>
 
                         <input
                             type="number"
@@ -127,60 +149,81 @@
                     </div>
 
                     <div class="col-md-6 mb-3">
-                      <label class="form-label">Observaciones</label>
-                      <textarea
-                        name="observaciones"
-                        class="form-control"
-                        rows="2"
-                        maxlength="1000"
-                        placeholder="Información adicional"
-                      >{{ old('observaciones') }}</textarea>
+
+                        <label class="form-label fw-semibold">
+                            Observaciones
+                        </label>
+
+                        <textarea
+                            name="observaciones"
+                            class="form-control"
+                            rows="2"
+                            maxlength="1000"
+                            placeholder="Información adicional"
+                        >{{ old('observaciones') }}</textarea>
+
                     </div>
 
                     <div class="col-md-6 mb-3">
-                      <label class="form-label">Confirma tu contraseña</label>
 
-                      <input
-                        type="password"
-                        name="password"
-                        class="form-control"
-                        placeholder="Ingresa tu contraseña actual"
-                        autocomplete="current-password"
-                        required
-                      >
+                        <label class="form-label fw-semibold">
+                            Confirma tu contraseña
+                        </label>
 
-                      <small class="text-muted">
-                        Por seguridad, debes confirmar tu contraseña para registrar la desvinculación.
-                      </small>
+                        <input
+                            type="password"
+                            name="password"
+                            class="form-control"
+                            placeholder="Ingresa tu contraseña actual"
+                            autocomplete="current-password"
+                            required
+                        >
+
+                        <small class="text-muted">
+                            Por seguridad, debes confirmar tu contraseña para registrar la desvinculación.
+                        </small>
+
                     </div>
 
                 </div>
 
-                <button type="submit" class="btn btn-danger">
-                    Registrar baja
-                </button>
+                <div class="d-flex justify-content-end pt-3 border-top">
+
+                    <button type="submit"
+                            class="btn text-white px-4"
+                            style="background-color: #6F1D46;">
+                        <i class="bi bi-person-check me-2"></i>
+                        Registrar baja
+                    </button>
+
+                </div>
 
             </form>
 
         </div>
-
     </div>
 
-    {{-- Historial de desvinculaciones --}}
-    <div class="card shadow">
 
-        <div class="card-header bg-dark text-white">
-            Historial de desvinculaciones
+    
+    {{-- Historial de desvinculaciones --}}
+    <div class="card border-0 shadow-sm">
+
+        <div class="card-header text-white py-3"
+            style="background-color: #6F1D46;">
+            <h5 class="mb-0 fw-semibold">
+                <i class="bi bi-clock-history me-2"></i>
+                Historial de desvinculaciones
+            </h5>
         </div>
 
-        <div class="card-body">
+        <div class="card-body p-4">
 
             <div class="table-responsive">
 
-                <table class="table table-dark table-hover align-middle">
+                <table class="table table-hover align-middle">
 
                     <thead>
-                        <tr>
+                        <tr style="background-color: #6F1D46; color: white;">
                             <th>Fecha</th>
                             <th>Empleado</th>
                             <th>Motivo</th>
@@ -196,22 +239,24 @@
 
                             <tr>
 
-                                <td>
+                                <td class="text-nowrap">
                                     {{ $desvinculacion->fecha_baja?->format('d/m/Y') }}
                                 </td>
 
-                                <td>
+                                <td class="fw-semibold">
                                     @if($desvinculacion->empleado)
                                         {{ $desvinculacion->empleado->nombres }}
                                         {{ $desvinculacion->empleado->apellidos }}
                                     @else
-                                        No disponible
+                                        <span class="text-muted">No disponible</span>
                                     @endif
                                 </td>
 
-                                <td>{{ $desvinculacion->motivo }}</td>
-
                                 <td>
+                                    {{ $desvinculacion->motivo }}
+                                </td>
+
+                                <td class="text-nowrap fw-semibold">
                                     ${{ number_format((float)$desvinculacion->finiquito, 2) }}
                                 </td>
 
@@ -221,7 +266,7 @@
                                         : 'No disponible' }}
                                 </td>
 
-                                <td>
+                                <td style="min-width: 180px;">
                                     {{ $desvinculacion->observaciones ?: 'Sin observaciones' }}
                                 </td>
 
@@ -230,7 +275,8 @@
                         @empty
 
                             <tr>
-                                <td colspan="6" class="text-center">
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <i class="bi bi-inbox fs-3 d-block mb-2"></i>
                                     No hay desvinculaciones registradas.
                                 </td>
                             </tr>
@@ -243,11 +289,14 @@
 
             </div>
 
-            {{ $desvinculaciones->links() }}
+            <div class="mt-3">
+                {{ $desvinculaciones->links() }}
+            </div>
 
         </div>
 
     </div>
+
 
 </div>
 

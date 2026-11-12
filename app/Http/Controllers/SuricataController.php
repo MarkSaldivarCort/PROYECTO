@@ -2,12 +2,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\AlertaSuricata;
-use App\Models\AuditoriaExportacion;
 use App\Models\BloqueoExportacion;
-use Illuminate\Console\Command;
+use App\Models\AuditoriaExportacion;
 use phpseclib4\Net\SSH2;
 use Carbon\Carbon;
-use Throwable;
 
 class SuricataController extends Controller
 {

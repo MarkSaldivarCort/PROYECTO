@@ -15,7 +15,6 @@
                 <th>Nombre</th>
                 <th>Departamento</th>
                 <th>Puesto</th>
-                <th>Antigüedad laboral</th>
                 <th>RFC</th>
                 <th>Acción</th>
             </tr>
