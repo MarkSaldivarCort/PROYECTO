@@ -19,6 +19,7 @@ class AlertaSuricata extends Model
         'http_method',
         'http_url',
         'http_status',
+        'event_hash',
     ];
 
     protected function casts(): array

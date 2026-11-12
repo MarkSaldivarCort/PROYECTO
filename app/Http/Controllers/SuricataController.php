@@ -2,8 +2,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\AlertaSuricata;
+use App\Models\AuditoriaExportacion;
+use App\Models\BloqueoExportacion;
+use Illuminate\Console\Command;
 use phpseclib4\Net\SSH2;
 use Carbon\Carbon;
+use Throwable;
 
 class SuricataController extends Controller
 {
@@ -45,7 +49,7 @@ class SuricataController extends Controller
         */
         $firmasPermitidas = [
 
-            'RRHH-DLP Exportacion masiva de empleados',
+            'RRHH-DLP Posible extraccion masiva de empleados',
             'RRHH-DLP Exportacion de multiples RFC sin enmascarar',
             'RRHH-DLP Consulta masiva de fichas de empleados',
             'RRHH-DLP Posible SQL Injection',
@@ -152,6 +156,49 @@ class SuricataController extends Controller
                     $evento['http']['status'] ?? null
 
             ]);
+
+            if ((int) $sid === 1000001) {
+
+                $ipOrigen = $evento['src_ip'] ?? null;
+
+                if ($ipOrigen) {
+
+                    // Buscar la exportación más reciente de esa IP
+                    // dentro de los 10 minutos anteriores a la alerta
+                    $fechaAlerta = Carbon::parse($fechaEvento);
+
+                    $auditoria = AuditoriaExportacion::where('ip', $ipOrigen)
+                        ->whereNotNull('usuario_id')
+                        ->whereBetween('created_at', [
+                            $fechaAlerta->copy()->subMinutes(10),
+                            $fechaAlerta->copy()->addSeconds(30)
+                        ])
+                        ->latest('created_at')
+                        ->first();
+
+                    if ($auditoria) {
+
+                        // Comprobar si el usuario ya tiene un bloqueo vigente
+                        $bloqueoActivo = BloqueoExportacion::where(
+                            'usuario_id',
+                            $auditoria->usuario_id
+                        )
+                        ->where('bloqueado_hasta', '>', now())
+                        ->exists();
+
+                        // Evitar extender un bloqueo existente
+                        if (!$bloqueoActivo) {
+
+                            BloqueoExportacion::create([
+                                'usuario_id' => $auditoria->usuario_id,
+                                'ip' => $ipOrigen,
+                                'motivo' => 'Posible extracción masiva de empleados detectada por Suricata (SID 1000001)',
+                                'bloqueado_hasta' => now()->addMinutes(10),
+                            ]);
+                        }
+                    }
+                }
+            }
             $alertasGuardadas++;
             $importadas++;
         }

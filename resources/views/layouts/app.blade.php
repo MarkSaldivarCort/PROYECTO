@@ -27,7 +27,9 @@
                     ? 'Analista de RRHH'
                     : (Auth::user()->tipo_usuario === 'admin'
                         ? 'Administrador'
-                        : Auth::user()->tipo_usuario) }}
+                        : (Auth::user()->tipo_usuario === 'colaborador'
+                            ? 'Colaborador'
+                            : Auth::user()->tipo_usuario)) }}
             </span>
         @endif
 
@@ -47,9 +49,9 @@
                 Desvinculaciones    |
             </a>
 
-            @if(Auth::check() && Auth::user()->tipo_usuario === 'admin')
+            @if(Auth::check() && in_array(Auth::user()->tipo_usuario, ['admin', 'colaborador']))
                 <a class="nav-link d-inline text-white" href="{{ route('alertas') }}">
-                    Alertas DLP |
+                    Alertas DLP
                 </a>
             @endif
 

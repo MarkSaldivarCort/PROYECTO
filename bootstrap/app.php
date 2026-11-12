@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin' => \App\Http\Middleware\SoloAdministrador::class,
+            'alertas.dlp' => \App\Http\Middleware\AccesoAlertasDlp::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

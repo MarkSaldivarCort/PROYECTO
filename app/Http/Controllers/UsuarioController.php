@@ -20,7 +20,7 @@ class UsuarioController extends Controller
     public function actualizarRol(Request $request, Usuarios $usuario)
     {
         $datos = $request->validate([
-            'tipo_usuario' => 'required|in:admin,analista_rrhh',
+            'tipo_usuario' => 'required|in:admin,colaborador,analista_rrhh',
             'password' => 'required|string',
         ]);
 

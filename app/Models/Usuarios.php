@@ -18,6 +18,7 @@ class Usuarios extends Authenticatable implements MustVerifyEmail
         'email',
         'telefono',
         'nombre_de_usuario',
-        'password'
+        'password',
+        'tipo_usuario',
     ];
 }

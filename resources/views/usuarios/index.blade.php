@@ -76,6 +76,10 @@
                                         <span class="badge bg-danger">
                                             Administrador
                                         </span>
+                                    @elseif($u->tipo_usuario === 'colaborador')
+                                        <span class="badge bg-info">
+                                            Colaborador
+                                        </span>
                                     @elseif(in_array($u->tipo_usuario, ['analista_rrhh', 'Analista de RRHH']))
                                         <span class="badge bg-primary">
                                             Analista de RRHH
@@ -95,15 +99,19 @@
                                         @method('PUT')
 
                                         <select name="tipo_usuario" class="form-select form-select-sm mb-2" required>
-                                            <option value="admin"
-                                                {{ $u->tipo_usuario === 'admin' ? 'selected' : '' }}>
+
+                                            <option value="admin" {{ $u->tipo_usuario === 'admin' ? 'selected' : '' }}>
                                                 Administrador
                                             </option>
 
-                                            <option value="analista_rrhh"
-                                                {{ in_array($u->tipo_usuario, ['analista_rrhh', 'Analista de RRHH']) ? 'selected' : '' }}>
+                                            <option value="colaborador" {{ $u->tipo_usuario === 'colaborador' ? 'selected' : '' }}>
+                                                Colaborador
+                                            </option>
+
+                                            <option value="analista_rrhh" {{ in_array($u->tipo_usuario, ['analista_rrhh', 'Analista de RRHH']) ? 'selected' : '' }}>
                                                 Analista de RRHH
                                             </option>
+
                                         </select>
 
                                         <input type="password"

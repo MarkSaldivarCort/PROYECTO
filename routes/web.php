@@ -122,7 +122,7 @@ Route::get('/email/verificar', function () {
 Route::get('/suricata/importar', [SuricataController::class, 'importarAlertas'])->name('suricata.importar');
 
 Route::get('/alertas', [AlertaSuricataController::class, 'index'])
-    ->middleware('admin')
+    ->middleware('alertas.dlp')
     ->name('alertas');
 
 Route::get('/usuarios', [UsuarioController::class, 'index'])
@@ -173,6 +173,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     ->name('empleados.buscar');
     
     Route::get('/alertas/{id}', [AlertaSuricataController::class, 'show'])
+    ->middleware('alertas.dlp')
     ->name('alertas.show');
 
     Route::get(
