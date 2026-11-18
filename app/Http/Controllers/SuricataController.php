@@ -11,9 +11,9 @@ class SuricataController extends Controller
 {
     public function importarAlertas()
     {
-        $ssh = new SSH2('192.168.100.29');
+        $ssh = new SSH2(config('services.suricata.host'));
 
-        if (!$ssh->login('USUARIO_ELIMINADO', 'CREDENCIAL_ELIMINADA')) {
+        if (!$ssh->login(config('services.suricata.username'), config('services.suricata.password'))) {
             return response()->json([
                 'error' => 'No se pudo conectar a Suricata'
             ], 500);
@@ -63,13 +63,12 @@ class SuricataController extends Controller
             }
 
             $evento = json_decode($linea, true);
+            if (!$evento || empty($evento['timestamp'])) {
+                continue;
+            }
             $fechaEvento = Carbon::parse(
                 $evento['timestamp']
             )->format('Y-m-d H:i:s');
-            
-            if (!$evento) {
-                continue;
-            }
 
             /*
             Solo eventos tipo alert
@@ -112,11 +111,11 @@ class SuricataController extends Controller
                 'flow_id',
                 $evento['flow_id']
             )
-            ->where(
-                'sid',
-                $sid
-            )
-            ->exists();
+                ->where(
+                    'sid',
+                    $sid
+                )
+                ->exists();
 
             if ($existe) {
                 $duplicadas++;
@@ -124,7 +123,7 @@ class SuricataController extends Controller
             }
 
             AlertaSuricata::create([
-                
+
                 'flow_id' => $evento['flow_id'] ?? null,
 
                 'src_ip' => $evento['src_ip'] ?? null,
@@ -181,8 +180,8 @@ class SuricataController extends Controller
                             'usuario_id',
                             $auditoria->usuario_id
                         )
-                        ->where('bloqueado_hasta', '>', now())
-                        ->exists();
+                            ->where('bloqueado_hasta', '>', now())
+                            ->exists();
 
                         // Evitar extender un bloqueo existente
                         if (!$bloqueoActivo) {

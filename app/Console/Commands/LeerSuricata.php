@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Console\Commands;
 
 use App\Models\AlertaSuricata;
@@ -7,6 +6,7 @@ use App\Models\AuditoriaExportacion;
 use App\Models\BloqueoExportacion;
 use App\Models\SuricataImportState;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use phpseclib4\Net\SSH2;
 use Carbon\Carbon;
 use Throwable;
@@ -16,99 +16,32 @@ class LeerSuricata extends Command
     protected $signature = 'suricata:leer';
 
     protected $description = 'Lee eventos de Suricata por SSH';
-   
+
     public function handle()
     {
         $ssh = new SSH2(config('services.suricata.host'));
 
-        if (!$ssh->login(
-            config('services.suricata.username'),
-            config('services.suricata.password')
-        )) {
+        if (
+            !$ssh->login(
+                config('services.suricata.username'),
+                config('services.suricata.password')
+            )
+        ) {
             $this->error('No se pudo conectar por SSH.');
             return self::FAILURE;
         }
 
-        $rutaArchivo = '/var/log/suricata/eve.json';
-
-        // Consultar inode y tamaño del archivo remoto
-        $metadatos = $ssh->exec(
-            "stat -c '%i %s' " . escapeshellarg($rutaArchivo)
-        );
-
-        if ($metadatos === false || trim($metadatos) === '') {
-            $this->error('No se pudieron consultar los metadatos de eve.json.');
-            return self::FAILURE;
-        }
-
-        $datosArchivo = preg_split('/\s+/', trim($metadatos));
-
-        if (count($datosArchivo) !== 2) {
-            $this->error('Los metadatos de eve.json no tienen el formato esperado.');
-            return self::FAILURE;
-        }
-
-        $inodeActual = (string) $datosArchivo[0];
-        $tamanoActual = (int) $datosArchivo[1];
-
-        // Recuperar o crear el estado de importación
-        $estado = SuricataImportState::firstOrCreate(
-            ['file_path' => $rutaArchivo],
-            [
-                'file_inode' => null,
-                'file_offset' => 0,
-            ]
-        );
-
-        // Detectar si el archivo fue reemplazado o rotado
-        if (
-            $estado->file_inode !== null &&
-            $estado->file_inode !== $inodeActual
-        ) {
-            $estado->file_offset = 0;
-        }
-
-        // Detectar si el archivo fue truncado
-        if ($tamanoActual < $estado->file_offset) {
-            $estado->file_offset = 0;
-        }
-
-        // Leer desde el último byte procesado
-        $offsetInicial = (int) $estado->file_offset;
-
-        $contenido = $ssh->exec(
-            'tail -c +' . ($offsetInicial + 1) . ' ' .
-            escapeshellarg($rutaArchivo)
-        );
-
-        if ($contenido === false || $contenido === null) {
-            $this->error('No se pudo leer el contenido incremental de eve.json.');
-            return self::FAILURE;
-        }
-
-        // Procesar únicamente líneas completas
-        $ultimoSalto = strrpos($contenido, "\n");
-
-        if ($ultimoSalto === false) {
-            $lineas = [];
-            $bytesProcesados = 0;
-        } else {
-            $contenidoCompleto = substr($contenido, 0, $ultimoSalto + 1);
-            $lineas = explode("\n", rtrim($contenidoCompleto, "\n"));
-            $bytesProcesados = strlen($contenidoCompleto);
-        }
-
-        $eventosLeidos = 0;
-        $alertasGuardadas = 0;
-        $descartadasPorSid = 0;
-        $descartadasPorFirma = 0;
-        $duplicadas = 0;
+        $rutas = [
+            '/var/log/suricata/eve.json.1',
+            '/var/log/suricata/eve.json',
+        ];
 
         $sidsPermitidos = [
             1000001,
             1000002,
             1000003,
             1000004,
+            1000005,
         ];
 
         $firmasPermitidas = [
@@ -116,130 +49,314 @@ class LeerSuricata extends Command
             'RRHH-DLP Exportacion de multiples RFC sin enmascarar',
             'RRHH-DLP Consulta masiva de fichas de empleados',
             'RRHH-DLP Posible SQL Injection',
+            'RRHH-DLP Exportacion de empleados fuera del horario laboral',
         ];
 
-        foreach ($lineas as $linea) {
+        $eventosLeidos = 0;
+        $alertasGuardadas = 0;
+        $descartadasPorSid = 0;
+        $descartadasPorFirma = 0;
+        $descartadasPorHorario = 0;
+        $duplicadas = 0;
+        $huboErrores = false;
 
-            if (trim($linea) === '') {
-            continue;
-            }
+        foreach ($rutas as $rutaArchivo) {
 
-            $eventosLeidos++;
-
-            $evento = json_decode($linea, true);
-            
-
-            if (!is_array($evento)) {
-                continue;
-            }
-
-            $eventHash = hash('sha256', $linea);
-
-            if (
-                ($evento['event_type'] ?? null) !== 'alert' ||
-                !isset($evento['alert'])
-            ) {
-                continue;
-            }
-
-            $sid = $evento['alert']['signature_id'] ?? null;
-            $firma = $evento['alert']['signature'] ?? '';
-
-            if (!in_array((int) $sid, $sidsPermitidos, true)) {
-                $descartadasPorSid++;
-                continue;
-            }
-
-            if (!in_array($firma, $firmasPermitidas, true)) {
-                $descartadasPorFirma++;
-                continue;
-            }
-
-            if (empty($evento['timestamp'])) {
-                continue;
-            }
-
-           $fechaEvento = Carbon::parse($evento['timestamp'])->setTimezone(config('app.timezone'));
-
-            $flowId = $evento['flow_id'] ?? null;
-            $srcIp = $evento['src_ip'] ?? null;
-            $destIp = $evento['dest_ip'] ?? null;
-
-            // Evitar duplicados mediante la huella digital del evento
-            $alertaExistente = AlertaSuricata::where('event_hash', $eventHash)->first();
-
-            if ($alertaExistente) {
-                $duplicadas++;
-            }
+            $this->info("Procesando: {$rutaArchivo}");
 
             try {
-                // Guardar solamente si la alerta no existe
-                if (!$alertaExistente) {
-                    AlertaSuricata::create([
-                        'flow_id' => $flowId,
-                        'src_ip' => $srcIp,
-                        'dest_ip' => $destIp,
-                        'signature' => $firma,
-                        'severity' => $evento['alert']['severity'] ?? null,
-                        'sid' => $sid,
-                        'fecha_evento' => $fechaEvento,
-                        'event_type' => $evento['event_type'],
-                        'http_method' => $evento['http']['http_method'] ?? null,
-                        'http_url' => $evento['http']['url'] ?? null,
-                        'http_status' => $evento['http']['status'] ?? null,
-                        'event_hash' => $eventHash,
-                    ]);
 
-                    $alertasGuardadas++;
+                // Consultar inode y tamaño
+                $metadatos = $ssh->exec(
+                    "stat -c '%i %s' " .
+                    escapeshellarg($rutaArchivo) .
+                    " 2>/dev/null"
+                );
+
+                if ($metadatos === false || trim($metadatos) === '') {
+                    $this->warn("Archivo no disponible: {$rutaArchivo}");
+                    continue;
                 }
 
-                // Intentar asociar la alerta con una auditoría de exportación
-                // Se ejecuta también cuando la alerta ya estaba registrada.
-                if ((int) $sid === 1000001 && $srcIp) {
-                    $auditoria = AuditoriaExportacion::where('ip', $srcIp)
-                        ->whereNotNull('usuario_id')
-                        ->whereBetween('created_at', [
-                            $fechaEvento->copy()->subMinutes(10),
-                            $fechaEvento->copy()->addSeconds(30),
-                        ])
-                        ->latest('created_at')
-                        ->first();
+                $datosArchivo = preg_split(
+                    '/\s+/',
+                    trim($metadatos)
+                );
 
-                    if ($auditoria) {
-                        $bloqueoActivo = BloqueoExportacion::where(
-                            'usuario_id',
-                            $auditoria->usuario_id
-                        )
-                            ->where('bloqueado_hasta', '>', now())
-                            ->exists();
+                if (count($datosArchivo) !== 2) {
+                    throw new \RuntimeException(
+                        'Metadatos iniciales inválidos.'
+                    );
+                }
 
-                        if (!$bloqueoActivo) {
-                            BloqueoExportacion::create([
-                                'usuario_id' => $auditoria->usuario_id,
-                                'ip' => $srcIp,
-                                'motivo' => 'Posible extracción masiva de empleados detectada por Suricata (SID 1000001)',
-                                'bloqueado_hasta' => now()->addMinutes(10),
-                            ]);
+                $inodeActual = (string) $datosArchivo[0];
+                $tamanoActual = (int) $datosArchivo[1];
+
+                // Recuperar estado independiente
+                $estado = SuricataImportState::firstOrCreate(
+                    ['file_path' => $rutaArchivo],
+                    [
+                        'file_inode' => null,
+                        'file_offset' => 0,
+                    ]
+                );
+
+                $offsetInicial = (int) $estado->file_offset;
+
+                // Detectar reemplazo del archivo
+                if (
+                    $estado->file_inode !== null &&
+                    (string) $estado->file_inode !== $inodeActual
+                ) {
+                    $offsetInicial = 0;
+                }
+
+                // Detectar truncamiento observable
+                if ($tamanoActual < $offsetInicial) {
+                    $offsetInicial = 0;
+                }
+
+                // Leer desde el último byte procesado
+                $contenido = $ssh->exec(
+                    'tail -c +' . ($offsetInicial + 1) .
+                    ' ' . escapeshellarg($rutaArchivo)
+                );
+
+                if ($contenido === false || $contenido === null) {
+                    throw new \RuntimeException(
+                        'No se pudo leer el archivo.'
+                    );
+                }
+
+                // Procesar solamente líneas completas
+                $ultimoSalto = strrpos($contenido, "\n");
+
+                if ($ultimoSalto === false) {
+                    $lineas = [];
+                    $bytesProcesados = 0;
+                } else {
+                    $contenidoCompleto = substr(
+                        $contenido,
+                        0,
+                        $ultimoSalto + 1
+                    );
+
+                    $lineas = explode(
+                        "\n",
+                        rtrim($contenidoCompleto, "\n")
+                    );
+
+                    $bytesProcesados = strlen($contenidoCompleto);
+                }
+
+                // Procesar eventos
+                foreach ($lineas as $linea) {
+
+                    if (trim($linea) === '') {
+                        continue;
+                    }
+
+                    $eventosLeidos++;
+
+                    $evento = json_decode($linea, true);
+
+                    if (
+                        !is_array($evento) ||
+                        json_last_error() !== JSON_ERROR_NONE
+                    ) {
+                        throw new \RuntimeException(
+                            "JSON inválido en {$rutaArchivo}."
+                        );
+                    }
+
+                    // Ignorar eventos que no sean alertas
+                    if (
+                        ($evento['event_type'] ?? null) !== 'alert' ||
+                        !isset($evento['alert'])
+                    ) {
+                        continue;
+                    }
+
+                    $sid = $evento['alert']['signature_id'] ?? null;
+                    $firma = $evento['alert']['signature'] ?? '';
+
+                    if (!in_array((int) $sid, $sidsPermitidos, true)) {
+                        $descartadasPorSid++;
+                        continue;
+                    }
+
+                    if (!in_array($firma, $firmasPermitidas, true)) {
+                        $descartadasPorFirma++;
+                        continue;
+                    }
+
+                    if (empty($evento['timestamp'])) {
+                        continue;
+                    }
+
+                    // Convertir la fecha al horario de Ciudad de México
+                    $fechaEvento = Carbon::parse(
+                        $evento['timestamp']
+                    )->setTimezone('America/Mexico_City');
+
+                    // Evaluar horario solamente para el SID 1000005
+                    if ((int) $sid === 1000005) {
+
+                        $diaSemana = $fechaEvento->dayOfWeekIso;
+                        $hora = $fechaEvento->format('H:i:s');
+
+                        $fueraHorario = (
+                            $diaSemana >= 6 ||
+                            $hora < '08:00:00' ||
+                            $hora >= '19:00:00'
+                        );
+
+                        if (!$fueraHorario) {
+                            $descartadasPorHorario++;
+                            continue;
                         }
+                    }
+
+                    $eventHash = hash('sha256', $linea);
+
+                    // Procesar cada alerta de forma transaccional
+                    $resultado = DB::transaction(function () use ($evento, $sid, $firma, $eventHash, $fechaEvento) {
+
+                        $existente = AlertaSuricata::where(
+                            'event_hash',
+                            $eventHash
+                        )->exists();
+
+                        if ($existente) {
+                            return 'duplicada';
+                        }
+
+                        $srcIp = $evento['src_ip'] ?? null;
+
+                        AlertaSuricata::create([
+                            'flow_id' => $evento['flow_id'] ?? null,
+                            'src_ip' => $srcIp,
+                            'dest_ip' => $evento['dest_ip'] ?? null,
+                            'signature' => $firma,
+                            'severity' => $evento['alert']['severity'] ?? null,
+                            'sid' => $sid,
+                            'fecha_evento' => $fechaEvento,
+                            'event_type' => $evento['event_type'],
+                            'http_method' => $evento['http']['http_method'] ?? null,
+                            'http_url' => $evento['http']['url'] ?? null,
+                            'http_status' => $evento['http']['status'] ?? null,
+                            'event_hash' => $eventHash,
+                        ]);
+
+                        // Asociar alerta con auditoría
+                        if ((int) $sid === 1000001 && $srcIp) {
+
+                            $auditoria = AuditoriaExportacion::where(
+                                'ip',
+                                $srcIp
+                            )
+                                ->whereNotNull('usuario_id')
+                                ->whereBetween('created_at', [
+                                    $fechaEvento->copy()->subMinutes(10),
+                                    $fechaEvento->copy()->addSeconds(30),
+                                ])
+                                ->latest('created_at')
+                                ->first();
+
+                            if ($auditoria) {
+
+                                $bloqueoActivo = BloqueoExportacion::where(
+                                    'usuario_id',
+                                    $auditoria->usuario_id
+                                )
+                                    ->where('bloqueado_hasta', '>', now())
+                                    ->exists();
+
+                                if (!$bloqueoActivo) {
+
+                                    BloqueoExportacion::create([
+                                        'usuario_id' => $auditoria->usuario_id,
+                                        'ip' => $srcIp,
+                                        'motivo' => 'Posible extracción masiva de empleados detectada por Suricata (SID 1000001)',
+                                        'bloqueado_hasta' => now()->addMinutes(10),
+                                    ]);
+                                }
+                            }
+                        }
+
+                        return 'guardada';
+                    });
+
+                    if ($resultado === 'duplicada') {
+                        $duplicadas++;
+                    } else {
+                        $alertasGuardadas++;
                     }
                 }
 
+                // Verificar que el archivo no cambió durante la lectura
+                $metadatosFinales = $ssh->exec(
+                    "stat -c '%i %s' " .
+                    escapeshellarg($rutaArchivo) .
+                    " 2>/dev/null"
+                );
+
+                if ($metadatosFinales === false || trim($metadatosFinales) === '') {
+                    throw new \RuntimeException(
+                        'No se pudieron verificar los metadatos finales.'
+                    );
+                }
+
+                $datosFinales = preg_split(
+                    '/\s+/',
+                    trim($metadatosFinales)
+                );
+
+                $archivoSinCambios = (
+                    count($datosFinales) === 2 &&
+                    (string) $datosFinales[0] === $inodeActual &&
+                    (int) $datosFinales[1] >= (
+                        $offsetInicial + $bytesProcesados
+                    )
+                );
+
+                if (!$archivoSinCambios) {
+                    throw new \RuntimeException(
+                        'El archivo cambió durante la lectura. Offset conservado.'
+                    );
+                }
+
+                // Actualizar posición
+                $estado->file_inode = $inodeActual;
+                $estado->file_offset = (
+                    $offsetInicial + $bytesProcesados
+                );
+                $estado->save();
+
+                $this->info(
+                    "Posición actualizada: {$rutaArchivo}"
+                );
+
             } catch (Throwable $e) {
-                $this->error('Error al procesar alerta: ' . $e->getMessage());
+
+                $huboErrores = true;
+
+                $this->error(
+                    "Error en {$rutaArchivo}: " . $e->getMessage()
+                );
             }
         }
-        // Guardar la posición alcanzada en el archivo de Suricata
-        $estado->file_inode = $inodeActual;
-        $estado->file_offset = $offsetInicial + $bytesProcesados;
-        $estado->save();
 
         $this->info("Eventos leídos: {$eventosLeidos}");
         $this->info("Alertas guardadas: {$alertasGuardadas}");
         $this->info("Descartadas por SID: {$descartadasPorSid}");
         $this->info("Descartadas por firma: {$descartadasPorFirma}");
+        $this->info("Descartadas por horario: {$descartadasPorHorario}");
         $this->info("Duplicadas: {$duplicadas}");
+        
 
-        return self::SUCCESS;
+        return $huboErrores
+            ? self::FAILURE
+            : self::SUCCESS;
     }
-
 }
